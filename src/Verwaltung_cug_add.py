@@ -2,7 +2,6 @@
 # This script is used to add the CUG "ABN_Patron-Kantonale-Verwaltung" to users #
 #################################################################################
 
-# MINIMAL VERSION
 
 # To use this script you need to install the almapiwrapper package:
 # `pip install almapiwrapper`
@@ -18,14 +17,49 @@
 #
 # Installation documentation: https://almapi-wrapper.readthedocs.io/en/latest/getstarted.html
 
+# NOTE: this version needs to be updated in order to be able to send emails.
 
 # import almapiwrapper
-from almapiwrapper.users import User
+from almapiwrapper.users import User, NewUser, fetch_users, fetch_user_in_all_iz, Fee, Loan
+from almapiwrapper.users import check_synchro, force_synchro
+from almapiwrapper.inventory import IzBib, NzBib, Holding, Item
+from almapiwrapper.record import JsonData, XmlData
+from almapiwrapper.config import ItemizedSet, LogicalSet, NewLogicalSet, NewItemizedSet, Job, Reminder, fetch_reminders
 from almapiwrapper.analytics import AnalyticsReport
 from almapiwrapper.configlog import config_log
+from almapiwrapper import ApiKeys
+
+import io
+import pandas as pd
+
+# sendmail is a custom package
+from sendmail import sendmail
+
+# Use to configure environment variable from script
+# import os
+# os.environ['alma_api_keys'] = '<path>/abn_keys.json'
 
 # Config logs
 config_log()
+
+
+def convert_dataframe_to_email_files(df: pd.DataFrame) -> bytes:
+    """
+    Convert a pandas dataframe to an Excel file
+    :param df: pandas dataframe
+    :return: bytes
+    """
+    output = io.BytesIO()
+
+    # Use the BytesIO object as the filehandle.
+    writer = pd.ExcelWriter(output, engine='openpyxl')
+
+    # Write the data frame to the BytesIO object.
+    df.to_excel(writer, sheet_name='Sheet1', index=False)
+
+    # Save the workbook to the BytesIO object.
+    writer.close()
+    return output.getvalue()
 
 
 # Read Analytics report
@@ -58,3 +92,24 @@ for primary_id in primary_ids:
 
     # Update user, override is required to update user group if there is already a user group change on the account
     u.update(override=['user_group'])
+
+
+# Email report
+# ------------
+
+# WARNING: this section will not work. It uses a local emailing server and library
+
+if len(filtered_data) > 0:
+    # At least one user group updated
+    message = f'NB users receiving new "ABN_Patron-Kantonale-Verwaltung" group: {len(data)}'
+    sendmail('raphael.rey@slsp.ch',
+             'PROCESS update "ABN_Patron-Kantonale-Verwaltung" CUG',
+             message,
+             'users_with_new_CUG.xlsx',
+             convert_dataframe_to_email_files(data))
+else:
+    # No user group updated
+    message = f'No new user with "ABN_Patron-Kantonale-Verwaltung" group'
+    sendmail('raphael.rey@slsp.ch',
+             'PROCESS update "ABN_Patron-Kantonale-Verwaltung" CUG',
+             message)

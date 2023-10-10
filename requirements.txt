@@ -1,2 +1,4 @@
-pandas
-almapiwrapper
+pandas~=2.1.1
+almapiwrapper~=0.19.2
+lxml==4.9.3
+requests==2.31.0
